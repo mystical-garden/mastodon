@@ -25,6 +25,34 @@ RSpec.describe StatusLengthValidator do
 
   context 'when text is over character limit' do
     it { is_expected.to_not allow_value(over_limit_text).for(:text).with_message(too_long_message) }
+
+    it 'adds an error when content warning is over MAX_CHARS characters' do
+      chars = StatusLengthValidator::MAX_CHARS + 1
+      status = status_double(spoiler_text: 'a' * chars)
+      subject.validate(status)
+      expect(status.errors).to have_received(:add)
+    end
+
+    it 'adds an error when text is over MAX_CHARS characters' do
+      chars = StatusLengthValidator::MAX_CHARS + 1
+      status = status_double(text: 'a' * chars)
+      subject.validate(status)
+      expect(status.errors).to have_received(:add)
+    end
+
+    it 'adds an error when text and content warning are over MAX_CHARS characters total' do
+      chars1 = 20
+      chars2 = StatusLengthValidator::MAX_CHARS + 1 - chars1
+      status = status_double(spoiler_text: 'a' * chars, text: 'b' *chars2)
+      subject.validate(status)
+      expect(status.errors).to have_received(:add)
+    end
+
+    it 'counts URLs as 23 characters flat' do
+      chars = StatusLengthValidator::MAX_CHARS - 1 - 23
+      text   = ('a' * chars) + " http://#{'b' * 30}.com/example"
+      status = status_double(text: text)
+    end
   end
 
   context 'when content warning text is over character limit' do
@@ -51,6 +79,15 @@ RSpec.describe StatusLengthValidator do
 
   context 'with excessively long URLs' do
     let(:text) { "http://example.com/valid?#{'#foo?' * 1000}" }
+
+    it { is_expected.to_not allow_value(text).for(:text).with_message(too_long_message) }
+
+    it 'counts only the front part of remote usernames' do
+      username = '@alice'
+      chars = StatusLengthValidator::MAX_CHARS - 1 - username.length
+      text   = ('a' * chars) + " #{username}@#{'b' * 30}.com"
+      status = status_double(text: text)
+    end
 
     it { is_expected.to_not allow_value(text).for(:text).with_message(too_long_message) }
   end
