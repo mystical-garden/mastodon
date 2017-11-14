@@ -24,26 +24,31 @@ RSpec.describe StatusLengthValidator do
       expect(status).to_not have_received(:errors)
     end
 
-    it 'adds an error when content warning is over character limit' do
-      status = status_double(spoiler_text: 'a' * 520)
+    it 'adds an error when content warning is over MAX_CHARS characters' do
+      chars = StatusLengthValidator::MAX_CHARS + 1
+      status = status_double(spoiler_text: 'a' * chars)
       subject.validate(status)
       expect(status.errors).to have_received(:add)
     end
 
-    it 'adds an error when text is over character limit' do
-      status = status_double(text: 'a' * 520)
+    it 'adds an error when text is over MAX_CHARS characters' do
+      chars = StatusLengthValidator::MAX_CHARS + 1
+      status = status_double(text: 'a' * chars)
       subject.validate(status)
       expect(status.errors).to have_received(:add)
     end
 
-    it 'adds an error when text and content warning are over character limit total' do
-      status = status_double(spoiler_text: 'a' * 250, text: 'b' * 251)
+    it 'adds an error when text and content warning are over MAX_CHARS characters total' do
+      chars1 = 20
+      chars2 = StatusLengthValidator::MAX_CHARS + 1 - chars1
+      status = status_double(spoiler_text: 'a' * chars, text: 'b' *chars2)
       subject.validate(status)
       expect(status.errors).to have_received(:add)
     end
 
-    it 'reduces calculated length of auto-linkable space-separated URLs' do
-      text = [starting_string, example_link].join(' ')
+    it 'counts URLs as 23 characters flat' do
+      chars = StatusLengthValidator::MAX_CHARS - 1 - 23
+      text   = ('a' * chars) + " http://#{'b' * 30}.com/example"
       status = status_double(text: text)
 
       subject.validate(status)
@@ -66,7 +71,9 @@ RSpec.describe StatusLengthValidator do
     end
 
     it 'counts only the front part of remote usernames' do
-      text   = ('a' * 475) + " @alice@#{'b' * 30}.com"
+      username = '@alice'
+      chars = StatusLengthValidator::MAX_CHARS - 1 - username.length
+      text   = ('a' * chars) + " #{username}@#{'b' * 30}.com"
       status = status_double(text: text)
 
       subject.validate(status)
